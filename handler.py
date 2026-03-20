@@ -524,17 +524,33 @@ def handler(job):
     ws.close()
     logger.info("웹소켓 연결 종료")
 
-    # 비디오가 없는 경우 처리
+    # ==========================================
+    # FIX: 가장 큰 비디오 선택 (오디오 포함된 버전)
+    # 기존: 첫 번째 비디오를 선택 (오디오 없는 버전)
+    # 수정: 가장 큰 파일을 선택 (오디오 믹싱된 최종 버전)
+    # ==========================================
     output_video_path = None
-    logger.info("출력 비디오 검색 중...")
+    best_size = 0
+    logger.info("출력 비디오 검색 중... (가장 큰 파일 선택)")
 
     for node_id in videos:
         if videos[node_id]:
-            output_video_path = videos[node_id][0]
-            logger.info(f"노드 {node_id}에서 출력 비디오 발견: {output_video_path}")
-            break
+            for vpath in videos[node_id]:
+                if os.path.exists(vpath):
+                    fsize = os.path.getsize(vpath)
+                    logger.info(f"  후보: 노드 {node_id} → {vpath} ({fsize} bytes)")
+                    if fsize > best_size:
+                        best_size = fsize
+                        output_video_path = vpath
+                        logger.info(f"  ✅ 새로운 최대 파일: {vpath} ({fsize} bytes)")
+                else:
+                    logger.warning(f"  ⚠️ 파일 없음: {vpath}")
         else:
             logger.info(f"노드 {node_id}는 비어있음")
+
+    if output_video_path:
+        logger.info(f"🎬 최종 선택 비디오: {output_video_path} ({best_size} bytes)")
+    # ==========================================
 
     if not output_video_path:
         logger.error("출력 비디오를 찾을 수 없습니다. 모든 노드가 비어있습니다.")
